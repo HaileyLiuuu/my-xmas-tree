@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎄 奢华3D圣诞树互动</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: radial-gradient(circle, #001510 0%, #000 100%); font-family: sans-serif; touch-action: none; }
+        
+        /* 界面UI */
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; color: white; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; box-sizing: border-box; }
+        .btn { pointer-events: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; backdrop-filter: blur(5px); cursor: pointer; margin: 5px; }
+        
+        #video-container { position: absolute; top: 10px; right: 10px; width: 100px; height: 130px; border-radius: 10px; overflow: hidden; border: 1px solid #edcf7d; transform: scaleX(-1); display: none; } /* 手机端默认隐藏摄像头 */
+        .input_video { width: 100%; height: 100%; object-fit: cover; }
+        
+        #hint { text-align: center; font-size: 18px; color: #edcf7d; text-shadow: 0 0 10px rgba(237,207,125,0.8); }
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div id="hint">✨ 点击屏幕：唤醒/打散圣诞树<br>↔️ 滑动：360° 旋转</div>
+    
+    <div class="controls">
+        <button class="btn" id="musicBtn">🎵 播放音乐</button>
+        <button class="btn" id="cameraBtn">📷 开启手势</button>
+    </div>
+</div>
+
+<div id="video-container">
+    <video class="input_video"></video>
+</div>
+
+<audio id="bgm" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio> 
+<script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+let scene, camera, renderer, particles, particleGroup;
+const particleCount = 10000;
+let positions = { random: [], tree: [] };
+let isTree = false;
+let targetRotationY = 0;
+let isRotating = false;
+
+// 1. 初始化场景
+function init() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = window.innerWidth < 600 ? 25 : 20;
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    particleGroup = new THREE.Group();
+    scene.add(particleGroup);
+
+    const geometry = new THREE.BufferGeometry();
+    const posArray = new Float32Array(particleCount * 3);
+    const colorArray = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+        // 随机星云坐标
+        const rx = (Math.random() - 0.5) * 35;
+        const ry = (Math.random() - 0.5) * 35;
+        const rz = (Math.random() - 0.5) * 35;
+        positions.random.push(rx, ry, rz);
+
+        // 螺旋圣诞树坐标
+        const y = (Math.random() * 14) - 7;
+        const t = (y + 7) / 14;
+        const radius = (1 - t) * 6;
+        const angle = t * Math.PI * 15 + (i % 3) * (Math.PI * 2 / 3);
+        
+        if (i > particleCount - 100) { // 树顶星星
+            positions.tree.push((Math.random()-0.5)*0.8, 7.5, (Math.random()-0.5)*0.8);
+        } else {
+            positions.tree.push(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+        }
+
+        posArray[i*3] = rx; posArray[i*3+1] = ry; posArray[i*3+2] = rz;
+
+        // 颜色
+        const color = new THREE.Color();
+        if (i > particleCount - 100) color.setHex(0xffeb3b);
+        else {
+            const rand = Math.random();
+            if (rand > 0.95) color.setHex(0xff3333);
+            else color.setHex(0x2e7d32 + Math.floor(Math.random() * 0x2222));
+        }
+        colorArray[i*3] = color.r; colorArray[i*3+1] = color.g; colorArray[i*3+2] = color.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+    particles = new THREE.Points(geometry, new THREE.PointsMaterial({
+        size: 0.1, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending
+    }));
+    particleGroup.add(particles);
+
+    // 事件监听
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 触摸/点击交互
+    window.addEventListener('pointerdown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isRotating = true;
+        // 切换形态
+        isTree = !isTree;
+        transitionTo(isTree ? positions.tree : positions.random);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (isRotating) {
+            targetRotationY += e.movementX * 0.01;
+        }
+    });
+
+    window.addEventListener('pointerup', () => isRotating = false);
+}
+
+function transitionTo(targetArray) {
+    const currentPos = particles.geometry.attributes.position.array;
+    for (let i = 0; i < particleCount; i++) {
+        const idx = i * 3;
+        new TWEEN.Tween({ x: currentPos[idx], y: currentPos[idx+1], z: currentPos[idx+2] })
+            .to({ x: targetArray[idx], y: targetArray[idx+1], z: targetArray[idx+2] }, 2000)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onUpdate(function(obj) {
+                currentPos[idx] = obj.x; currentPos[idx+1] = obj.y; currentPos[idx+2] = obj.z;
+                particles.geometry.attributes.position.needsUpdate = true;
+            })
+            .start();
+    }
+}
+
+// 音乐控制
+const bgm = document.getElementById('bgm');
+document.getElementById('musicBtn').onclick = () => {
+    if (bgm.paused) {
+        bgm.play();
+        document.getElementById('musicBtn').innerText = "⏸ 暂停音乐";
+    } else {
+        bgm.pause();
+        document.getElementById('musicBtn').innerText = "🎵 播放音乐";
+    }
+};
+
+// 摄像头手势开启
+document.getElementById('cameraBtn').onclick = () => {
+    const container = document.getElementById('video-container');
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+    startCamera();
+};
+
+function animate(time) {
+    requestAnimationFrame(animate);
+    TWEEN.update(time);
+    particleGroup.rotation.y += (targetRotationY - particleGroup.rotation.y) * 0.1;
+    particles.rotation.y += 0.002;
+    renderer.render(scene, camera);
+}
+
+init();
+animate();
+
+// MediaPipe 逻辑 (按需加载)
+function startCamera() {
+    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7 });
+    hands.onResults(results => {
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            const lm = results.multiHandLandmarks[0];
+            const dist = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
+            if (dist < 0.05 && !isTree) { isTree = true; transitionTo(positions.tree); }
+            else if (dist > 0.15 && isTree) { isTree = false; transitionTo(positions.random); }
+            targetRotationY = (0.5 - lm[9].x) * Math.PI * 4;
+        }
+    });
+    const cam = new Camera(document.querySelector('.input_video'), {
+        onFrame: async () => { await hands.send({ image: document.querySelector('.input_video') }); },
+        width: 480, height: 640
+    });
+    cam.start();
+}
+</script>
+</body>
+</html>
