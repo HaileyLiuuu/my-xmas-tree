@@ -1,174 +1,220 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
+<!DOCTYPE html><html lang="zh-CN"><head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ethereal Xmas - Responsive Magic</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereal Xmas - Synchronized Flow</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; }
-        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
-        #top-hint { margin-top: 15%; width: 90%; text-align: center; color: #ffb6c1; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
-        h1 { font-weight: 200; margin: 0; font-size: 2.2rem; letter-spacing: 2px; }
-        #controls { margin-bottom: 20%; pointer-events: auto; display: flex; gap: 15px; }
-        .glass-btn { padding: 16px 24px; background: rgba(255, 182, 193, 0.15); border: 1px solid rgba(255, 182, 193, 0.4); backdrop-filter: blur(10px); border-radius: 50px; cursor: pointer; color: #ffb6c1; -webkit-tap-highlight-color: transparent; }
-        #video-container { position: fixed; top: 20px; right: 20px; width: 80px; height: 100px; border-radius: 12px; overflow: hidden; border: 1.5px solid rgba(255,182,193,0.4); opacity: 0; z-index: 90; }
-    </style>
-</head>
-<body>
-
-<audio id="bg-music" loop playsinline src="https://cdn.jsdelivr.net/gh/HaileyLiuuu/my-xmas-tree/jingleBellRock.mp3"></audio>
-
-<div id="ui-layer">
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Optima', 'PingFang SC', sans-serif; }
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: flex; flex-direction: column; align-items: center; }
+        #top-hint { position: absolute; top: 3%; width: 100%; text-align: center; color: #ffb6c1; font-size: 0.85rem; letter-spacing: 4px; text-shadow: 0 0 10px rgba(0,0,0,0.9); }
+        
+        /* 按钮容器：放置在底部 */
+        #btn-group { position: absolute; bottom: 12%; display: flex; gap: 15px; pointer-events: auto; }
+        
+        .magic-btn { 
+            padding: 14px 25px; font-size: 0.9rem; letter-spacing: 2px; 
+            background: rgba(255, 182, 193, 0.1); border: 1px solid rgba(255, 182, 193, 0.4); 
+            backdrop-filter: blur(8px); border-radius: 4px; cursor: pointer; 
+            color: #ffb6c1; font-weight: 300; transition: 0.6s; 
+        }
+        .magic-btn:hover { background: rgba(255, 182, 193, 0.2); border-color: #ffb6c1; }
+        
+        #video-container { position: fixed; bottom: 20px; right: 20px; width: 120px; height: 90px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,182,193,0.2); opacity: 0; transition: 1s; }
+    </style></head><body><audio id="bg-music" loop>
+    <source src="https://cdn.jsdelivr.net/gh/HaileyLiuuu/my-xmas-tree/jingleBellRock.mp3" type="audio/mpeg"></audio><div id="ui-layer">
     <div id="top-hint">
-        <h1>Merry Christmas</h1>
-        <p>张开手掌：散开粒子<br>收回手掌：凝聚树木</p>
+        <h1 style="font-weight: 200; margin: 0; font-size: 3rem;">Merry Christmas</h1>
+        <p style="opacity: 0.7; margin: 5px 0;">张开手掌：粒子散开 | 握拳：看到圣诞树</p>
     </div>
-    <div id="controls">
-        <button id="start-btn" class="glass-btn" style="font-weight:bold; background:rgba(255,182,193,0.25)">开启圣诞魔法</button>
-        <button id="music-toggle" class="glass-btn">🎵 ON</button>
+    
+    <div id="btn-group">
+        <button id="start-btn" class="magic-btn">开启魔法交互</button>
+        <button id="music-toggle" class="magic-btn" style="display: none;">Music: ON</button>
     </div>
-</div>
-
-<div id="video-container"><video id="webcam" autoplay playsinline muted style="width:100%; height:100%; object-fit: cover; transform: scaleX(-1);"></video></div>
-
-<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
-
-<script type="module">
-import * as THREE from 'three';
-import { GestureRecognizer, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-
-const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-let scene, camera, renderer, treeParticles, heartPoints, gestureRecognizer, isExploded = false, gestureCounter = 0;
-const webcam = document.getElementById('webcam'), music = document.getElementById('bg-music'), musicBtn = document.getElementById('music-toggle');
-
-const treeParticleCount = isMobile ? 12000 : 35000; 
-const heartParticleCount = isMobile ? 1500 : 3000;
-const treePos = [], treeTargets = [], heartPos = [], heartTargets = [], heartExplodeTargets = [];
-
-function init() {
+</div><div id="video-container">
+    <video id="webcam" autoplay playsinline style="width:100%; height:100%; object-fit: cover; transform: scaleX(-1);"></video></div><script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script><script type="module">import * as THREE from 'three';import { GestureRecognizer, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";let scene, camera, renderer, treeParticles, spaceDust, heartPoints;let gestureRecognizer;let isExploded = false;const webcam = document.getElementById('webcam');const treeParticleCount = 45000;const heartParticleCount = 4000;const treePos = [], treeTargets = [], treeColors = [];const heartPos = [], heartTargets = [], heartExplodeTargets = [], heartColors = [];function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1, isMobile ? 22 : 18);
-    renderer = new THREE.WebGLRenderer({ antialias: false });
+    camera.position.set(0, 1.0, 18);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    const tex = createCircleTexture();
-    const colors = [new THREE.Color(0xff1493), new THREE.Color(0xff69b4), new THREE.Color(0xffc0cb)];
+    const commonTexture = createCircleTexture();
+    const sharedColorsArr = [
+        new THREE.Color(0xff1493), new THREE.Color(0xff69b4),
+        new THREE.Color(0xdb7093), new THREE.Color(0xffc0cb)
+    ];
+    const goldColor = new THREE.Color(0xd4af37);
 
     const heartGeo = new THREE.BufferGeometry();
-    const hScale = isMobile ? 0.05 : 0.06;
-    const hCols = [];
+    const hScale = 0.06;
     for (let i = 0; i < heartParticleCount; i++) {
-        const t = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()); 
-        const x = r * (16 * Math.pow(Math.sin(t), 3)), y = r * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
-        heartTargets.push(x * hScale, (y * hScale) + 6.3, (Math.random()-0.5)*0.7);
-        heartPos.push(x * hScale, (y * hScale) + 6.3, (Math.random()-0.5)*0.7);
-        heartExplodeTargets.push((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50);
-        const c = colors[Math.floor(Math.random()*colors.length)];
-        hCols.push(c.r, c.g, c.b);
+        const t = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()); 
+        const x = r * (16 * Math.pow(Math.sin(t), 3));
+        const y = r * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        const tx = x * hScale;
+        const ty = (y * hScale) + 6.3;
+        const tz = (Math.random() - 0.5) * 0.7;
+        heartTargets.push(tx, ty, tz);
+        heartPos.push(tx, ty, tz);
+        heartExplodeTargets.push((Math.random()-0.5)*60, (Math.random()-0.5)*60, (Math.random()-0.5)*60);
+        const isGold = Math.random() < 0.30;
+        const c = isGold ? goldColor : sharedColorsArr[Math.floor(Math.random() * sharedColorsArr.length)];
+        heartColors.push(c.r, c.g, c.b);
     }
     heartGeo.setAttribute('position', new THREE.Float32BufferAttribute(heartPos, 3));
-    heartGeo.setAttribute('color', new THREE.Float32BufferAttribute(hCols, 3));
-    heartPoints = new THREE.Points(heartGeo, new THREE.PointsMaterial({ size: 0.15, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, map: tex, depthWrite: false }));
+    heartGeo.setAttribute('color', new THREE.Float32BufferAttribute(heartColors, 3));
+    heartPoints = new THREE.Points(heartGeo, new THREE.PointsMaterial({
+        size: 0.11, vertexColors: true, transparent: true, opacity: 0.95, 
+        blending: THREE.AdditiveBlending, map: commonTexture, depthWrite: false
+    }));
     scene.add(heartPoints);
 
-    const treeGeo = new THREE.BufferGeometry();
-    const tCols = [];
+    const coneGeo = new THREE.BufferGeometry();
     for (let i = 0; i < treeParticleCount; i++) {
-        const t = Math.random(), a = Math.random() * Math.PI * 2, rad = (1 - t) * 4.5;
-        treePos.push(rad * Math.cos(a), t * 12 - 6, rad * Math.sin(a));
-        treeTargets.push((Math.random()-0.5)*55, (Math.random()-0.5)*55, (Math.random()-0.5)*55);
-        const c = colors[Math.floor(Math.random()*colors.length)];
-        tCols.push(c.r, c.g, c.b);
+        const t = Math.random(); 
+        const angle = Math.random() * Math.PI * 2;
+        const radius = (1 - t) * 4.5;
+        const x = radius * Math.cos(angle);
+        const y = t * 12 - 6;
+        const z = radius * Math.sin(angle);
+        treePos.push(x, y, z);
+        treeTargets.push((Math.random()-0.5)*60, (Math.random()-0.5)*60, (Math.random()-0.5)*60);
+        const c = sharedColorsArr[Math.floor(Math.random() * sharedColorsArr.length)];
+        treeColors.push(c.r, c.g, c.b);
     }
-    treeGeo.setAttribute('position', new THREE.Float32BufferAttribute(treePos, 3));
-    treeGeo.setAttribute('color', new THREE.Float32BufferAttribute(tCols, 3));
-    treeParticles = new THREE.Points(treeGeo, new THREE.PointsMaterial({ size: 0.18, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, map: tex, depthWrite: false, opacity: 0.6 }));
+    coneGeo.setAttribute('position', new THREE.Float32BufferAttribute(treePos, 3));
+    coneGeo.setAttribute('color', new THREE.Float32BufferAttribute(treeColors, 3));
+    treeParticles = new THREE.Points(coneGeo, new THREE.PointsMaterial({
+        size: 0.14, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending,
+        map: commonTexture, depthWrite: false, opacity: 0.65
+    }));
     scene.add(treeParticles);
 
+    const dustGeo = new THREE.BufferGeometry();
+    const dPos = [], dColorsArr = [];
+    for(let i=0; i<3500; i++) {
+        dPos.push((Math.random()-0.5)*120, (Math.random()-0.5)*120, (Math.random()-0.5)*120);
+        const c = Math.random() > 0.2 ? goldColor : new THREE.Color(0xffffff);
+        dColorsArr.push(c.r, c.g, c.b);
+    }
+    dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dPos, 3));
+    dustGeo.setAttribute('color', new THREE.Float32BufferAttribute(dColorsArr, 3));
+    spaceDust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.1, vertexColors: true, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending }));
+    scene.add(spaceDust);
+
     animate();
-}
-
-function createCircleTexture() {
-    const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
+}function createCircleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-    g.addColorStop(0, '#fff'); g.addColorStop(1, 'transparent');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
     return new THREE.CanvasTexture(canvas);
-}
-
-function animate() {
+}function animate() {
     requestAnimationFrame(animate);
-    const speed = 0.08;
-    const tAttr = treeParticles.geometry.attributes.position;
+    const time = Date.now() * 0.001;
+    const lerpSpeed = 0.06;
+
+    const tPosAttr = treeParticles.geometry.attributes.position;
     for (let i = 0; i < treeParticleCount; i++) {
         let idx = i * 3;
+        const t = (tPosAttr.array[idx+1] + 6) / 12;
+        const swirl = Math.sin(time + t * 4) * 0.04;
         for(let j=0; j<3; j++) {
-            const target = isExploded ? treeTargets[idx+j] : treePos[idx+j];
-            tAttr.array[idx+j] += (target - tAttr.array[idx+j]) * speed;
+            const origin = treePos[idx+j] + (j!==1 ? swirl : 0);
+            const target = isExploded ? treeTargets[idx+j] : origin;
+            tPosAttr.array[idx+j] += (target - tPosAttr.array[idx+j]) * lerpSpeed;
         }
     }
-    tAttr.needsUpdate = true;
-    const hAttr = heartPoints.geometry.attributes.position;
+    tPosAttr.needsUpdate = true;
+    treeParticles.rotation.y += 0.0015;
+
+    const hPosAttr = heartPoints.geometry.attributes.position;
+    const hScaleActive = 1.0 + Math.sin(time * 3.5) * 0.08;
     for (let i = 0; i < heartParticleCount; i++) {
         let idx = i * 3;
-        for(let j=0; j<3; j++) {
-            const target = isExploded ? heartExplodeTargets[idx+j] : heartTargets[idx+j];
-            hAttr.array[idx+j] += (target - hAttr.array[idx+j]) * speed;
-        }
+        const originX = heartTargets[idx] * hScaleActive;
+        const originY = (heartTargets[idx+1] - 6.3) * hScaleActive + 6.3;
+        const originZ = heartTargets[idx+2] * hScaleActive;
+        const targetX = isExploded ? heartExplodeTargets[idx] : originX;
+        const targetY = isExploded ? heartExplodeTargets[idx+1] : originY;
+        const targetZ = isExploded ? heartExplodeTargets[idx+2] : originZ;
+        hPosAttr.array[idx] += (targetX - hPosAttr.array[idx]) * lerpSpeed;
+        hPosAttr.array[idx+1] += (targetY - hPosAttr.array[idx+1]) * lerpSpeed;
+        hPosAttr.array[idx+2] += (targetZ - hPosAttr.array[idx+2]) * lerpSpeed;
     }
-    hAttr.needsUpdate = true;
-    treeParticles.rotation.y += 0.003;
-    heartPoints.rotation.y += 0.01;
-    renderer.render(scene, camera);
-}
+    hPosAttr.needsUpdate = true;
+    heartPoints.rotation.y += 0.015;
 
-async function startAI() {
+    spaceDust.rotation.y += 0.0003;
+    renderer.render(scene, camera);
+}async function startAI() {
     const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
     gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
         baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task" },
         runningMode: "VIDEO", numHands: 1
     });
     tick();
-}
-
-function tick() {
-    if (gestureRecognizer && webcam.readyState >= 2) {
+}function tick() {
+    if (gestureRecognizer && webcam.currentTime !== -1) {
         const res = gestureRecognizer.recognizeForVideo(webcam, performance.now());
-        if (res.gestures && res.gestures.length > 0) {
-            const top = res.gestures[0][0];
-            if (top.score > 0.4) {
-                if (top.categoryName === "Open_Palm") gestureCounter = Math.min(gestureCounter + 1, 3);
-                else gestureCounter = Math.max(gestureCounter - 1, -3);
-            }
-        } else {
-            gestureCounter *= 0.8;
+        if (res.gestures.length > 0) {
+            const name = res.gestures[0][0].categoryName;
+            isExploded = (name === "Open_Palm");
         }
-        isExploded = gestureCounter >= 1.5;
     }
     requestAnimationFrame(tick);
 }
 
-document.getElementById('start-btn').onclick = async () => {
-    try {
+// 获取控制元素
+const music = document.getElementById('bg-music');
+const startBtn = document.getElementById('start-btn');
+const musicToggle = document.getElementById('music-toggle');
+
+// 音乐开关切换逻辑
+musicToggle.onclick = () => {
+    if (music.paused) {
         music.play();
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        musicToggle.innerText = "Music: ON";
+    } else {
+        music.pause();
+        musicToggle.innerText = "Music: OFF";
+    }
+};
+
+// 按钮点击逻辑：开启摄像头、AI识别并同步响起音乐
+startBtn.onclick = async () => {
+    try {
+        music.play(); // 刚开启魔法时，自动播放音乐
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         webcam.srcObject = stream;
         document.getElementById('video-container').style.opacity = '1';
+        
         await startAI();
-        document.getElementById('start-btn').style.display = 'none';
-    } catch (e) { alert("请确保使用 HTTPS 并授权摄像头"); }
+        
+        // 开启成功后：隐藏“开启”按钮，显示“音乐开关”按钮
+        startBtn.style.display = 'none';
+        musicToggle.style.display = 'block';
+    } catch (e) { 
+        alert("开启魔法需要摄像头权限及网络加载资源"); 
+        console.error(e);
+    }
 };
 
-musicBtn.onclick = () => {
-    if (music.paused) { music.play(); musicBtn.innerText = "🎵 ON"; }
-    else { music.pause(); musicBtn.innerText = "🔇 OFF"; }
-};
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-init();
-</script>
-</body>
-</html>
+init();</script></body></html>
