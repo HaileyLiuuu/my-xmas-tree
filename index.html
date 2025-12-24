@@ -12,15 +12,20 @@
         h1 { font-weight: 200; margin: 0; font-size: 2.2rem; letter-spacing: 2px; }
         p { opacity: 0.8; margin: 8px 0; font-size: 0.8rem; line-height: 1.4; }
 
-        #start-btn { 
-            margin-bottom: 20%; pointer-events: auto; padding: 16px 32px; 
-            font-size: 1rem; letter-spacing: 2px; background: rgba(255, 182, 193, 0.2); 
-            border: 1px solid rgba(255, 182, 193, 0.5); backdrop-filter: blur(10px); 
-            border-radius: 50px; cursor: pointer; color: #ffb6c1; transition: 0.3s;
-            -webkit-tap-highlight-color: transparent;
+        /* 按钮容器：并排排列 */
+        #controls { margin-bottom: 20%; pointer-events: auto; display: flex; gap: 15px; align-items: center; }
+
+        .glass-btn { 
+            padding: 16px 24px; font-size: 0.9rem; letter-spacing: 1px; 
+            background: rgba(255, 182, 193, 0.15); border: 1px solid rgba(255, 182, 193, 0.4); 
+            backdrop-filter: blur(10px); border-radius: 50px; cursor: pointer; 
+            color: #ffb6c1; transition: 0.3s; -webkit-tap-highlight-color: transparent;
         }
+
+        #start-btn { padding: 16px 32px; font-weight: bold; background: rgba(255, 182, 193, 0.25); }
         
-        /* 视频预览窗适配手机 */
+        #music-toggle { width: 100px; font-size: 0.8rem; }
+
         #video-container { 
             position: fixed; top: 20px; right: 20px; width: 80px; height: 100px; 
             border-radius: 12px; overflow: hidden; border: 1.5px solid rgba(255,182,193,0.4); 
@@ -39,7 +44,11 @@
         <h1>Merry Christmas</h1>
         <p>张开手掌：散开粒子<br>紧握拳头：凝聚心愿</p>
     </div>
-    <button id="start-btn">开启圣诞魔法</button>
+    
+    <div id="controls">
+        <button id="start-btn" class="glass-btn">开启圣诞魔法</button>
+        <button id="music-toggle" class="glass-btn">🎵 ON</button>
+    </div>
 </div>
 
 <div id="video-container">
@@ -54,28 +63,27 @@
 import * as THREE from 'three';
 import { GestureRecognizer, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
-// 检测是否为移动端
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
 let scene, camera, renderer, treeParticles, spaceDust, heartPoints;
 let gestureRecognizer;
 let isExploded = false;
-const webcam = document.getElementById('webcam');
+let musicPlaying = false;
 
-// 性能优化：移动端减少粒子数量
+const webcam = document.getElementById('webcam');
+const music = document.getElementById('bg-music');
+const musicBtn = document.getElementById('music-toggle');
+
 const treeParticleCount = isMobile ? 15000 : 40000; 
 const heartParticleCount = isMobile ? 2000 : 4000;
-
 const treePos = [], treeTargets = [], treeColors = [];
 const heartPos = [], heartTargets = [], heartExplodeTargets = [], heartColors = [];
 
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    // 手机端拉远一点相机，防止树太大超出屏幕
     camera.position.set(0, 1.0, isMobile ? 22 : 18);
 
-    renderer = new THREE.WebGLRenderer({ antialias: !isMobile }); // 手机端关闭抗锯齿提升帧率
+    renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
@@ -88,10 +96,8 @@ function init() {
     const heartGeo = new THREE.BufferGeometry();
     const hScale = isMobile ? 0.05 : 0.06;
     for (let i = 0; i < heartParticleCount; i++) {
-        const t = Math.random() * Math.PI * 2;
-        const r = Math.sqrt(Math.random()); 
-        const x = r * (16 * Math.pow(Math.sin(t), 3));
-        const y = r * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        const t = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()); 
+        const x = r * (16 * Math.pow(Math.sin(t), 3)), y = r * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
         heartTargets.push(x * hScale, (y * hScale) + 6.3, (Math.random() - 0.5) * 0.7);
         heartPos.push(x * hScale, (y * hScale) + 6.3, (Math.random() - 0.5) * 0.7);
         heartExplodeTargets.push((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50);
@@ -106,9 +112,7 @@ function init() {
     // 2. 圣诞树
     const coneGeo = new THREE.BufferGeometry();
     for (let i = 0; i < treeParticleCount; i++) {
-        const t = Math.random(); 
-        const angle = Math.random() * Math.PI * 2;
-        const radius = (1 - t) * 4.5;
+        const t = Math.random(), angle = Math.random() * Math.PI * 2, radius = (1 - t) * 4.5;
         treePos.push(radius * Math.cos(angle), t * 12 - 6, radius * Math.sin(angle));
         treeTargets.push((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50);
         const c = sharedColorsArr[Math.floor(Math.random() * sharedColorsArr.length)];
@@ -143,7 +147,7 @@ function createCircleTexture() {
 function animate() {
     requestAnimationFrame(animate);
     const time = Date.now() * 0.001;
-    const lerpSpeed = isMobile ? 0.08 : 0.06; // 手机端响应稍快一点
+    const lerpSpeed = isMobile ? 0.08 : 0.06;
 
     const tPosAttr = treeParticles.geometry.attributes.position;
     for (let i = 0; i < treeParticleCount; i++) {
@@ -190,11 +194,33 @@ function tick() {
     requestAnimationFrame(tick);
 }
 
+// 音乐控制逻辑
+function toggleMusic() {
+    if (music.paused) {
+        music.play();
+        musicBtn.innerText = "🎵 ON";
+        musicPlaying = true;
+    } else {
+        music.pause();
+        musicBtn.innerText = "🔇 OFF";
+        musicPlaying = false;
+    }
+}
+
+musicBtn.onclick = (e) => {
+    e.stopPropagation();
+    toggleMusic();
+};
+
 document.getElementById('start-btn').onclick = async () => {
     const btn = document.getElementById('start-btn');
     btn.innerText = "魔法加载中...";
     try {
-        document.getElementById('bg-music').play();
+        // 初始自动播放音乐
+        music.play();
+        musicPlaying = true;
+        musicBtn.innerText = "🎵 ON";
+
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "user", width: isMobile ? 240 : 640 } 
         });
